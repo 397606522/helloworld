@@ -1,10 +1,25 @@
+require "luci.ip"
+require "nixio.fs"
+require "luci.sys"
 local m, s, o
-local NXFS = require "nixio.fs"
 
-m = Map("shadowsocksr", translate("IP black-and-white list"))
+local function is_finded(e)
+	return luci.sys.exec(string.format('type -t -p "%s" 2>/dev/null', e)) ~= ""
+end
+
+m = Map("shadowsocksr")
 
 s = m:section(TypedSection, "access_control")
 s.anonymous = true
+
+-- Interface control
+s:tab("Interface", translate("Interface control"))
+o = s:taboption("Interface", DynamicList, "Interface", translate("Interface"))
+o.template = "cbi/network_netlist"
+o.widget = "checkbox"
+o.nocreate = true
+o.unspecified = true
+o.description = translate("Listen only on the given interface or, if unspecified, on all")
 
 -- Part of WAN
 s:tab("wan_ac", translate("WAN IP AC"))
@@ -26,36 +41,36 @@ o.rmempty = false
 
 o = s:taboption("lan_ac", DynamicList, "lan_ac_ips", translate("LAN Host List"))
 o.datatype = "ipaddr"
-luci.ip.neighbors({ family = 4 }, function(entry)
-		if entry.reachable then
-			o:value(entry.dest:string())
-		end
+luci.ip.neighbors({family = 4}, function(entry)
+	if entry.reachable then
+		o:value(entry.dest:string())
+	end
 end)
 o:depends("lan_ac_mode", "w")
 o:depends("lan_ac_mode", "b")
 
 o = s:taboption("lan_ac", DynamicList, "lan_bp_ips", translate("LAN Bypassed Host List"))
 o.datatype = "ipaddr"
-luci.ip.neighbors({ family = 4 }, function(entry)
-		if entry.reachable then
-			o:value(entry.dest:string())
-		end
+luci.ip.neighbors({family = 4}, function(entry)
+	if entry.reachable then
+		o:value(entry.dest:string())
+	end
 end)
 
 o = s:taboption("lan_ac", DynamicList, "lan_fp_ips", translate("LAN Force Proxy Host List"))
 o.datatype = "ipaddr"
-luci.ip.neighbors({ family = 4 }, function(entry)
-		if entry.reachable then
-			o:value(entry.dest:string())
-		end
+luci.ip.neighbors({family = 4}, function(entry)
+	if entry.reachable then
+		o:value(entry.dest:string())
+	end
 end)
 
 o = s:taboption("lan_ac", DynamicList, "lan_gm_ips", translate("Game Mode Host List"))
 o.datatype = "ipaddr"
-luci.ip.neighbors({ family = 4 }, function(entry)
-		if entry.reachable then
-			o:value(entry.dest:string())
-		end
+luci.ip.neighbors({family = 4}, function(entry)
+	if entry.reachable then
+		o:value(entry.dest:string())
+	end
 end)
 
 -- Part of Self
@@ -66,73 +81,93 @@ end)
 -- o:value("2", translatef("Forwarded Proxy"))
 -- o.rmempty = false
 
-s:tab("esc",  translate("Bypass Domain List"))
-
-local escconf = "/etc/config/white.list"
+s:tab("esc", translate("Bypass Domain List"))
+local escconf = "/etc/ssrplus/white.list"
 o = s:taboption("esc", TextValue, "escconf")
 o.rows = 13
 o.wrap = "off"
 o.rmempty = true
 o.cfgvalue = function(self, section)
-	return NXFS.readfile(escconf) or ""
+	return nixio.fs.readfile(escconf) or ""
 end
 o.write = function(self, section, value)
-	NXFS.writefile(escconf, value:gsub("\r\n", "\n"))
+	nixio.fs.writefile(escconf, value:gsub("\r\n", "\n"))
 end
 o.remove = function(self, section, value)
-	NXFS.writefile(escconf, "")
+	nixio.fs.writefile(escconf, "")
 end
 
-
-s:tab("block",  translate("Black Domain List"))
-
-local blockconf = "/etc/config/black.list"
+s:tab("block", translate("Black Domain List"))
+local blockconf = "/etc/ssrplus/black.list"
 o = s:taboption("block", TextValue, "blockconf")
 o.rows = 13
 o.wrap = "off"
 o.rmempty = true
 o.cfgvalue = function(self, section)
-	return NXFS.readfile(blockconf) or " "
+	return nixio.fs.readfile(blockconf) or " "
 end
 o.write = function(self, section, value)
-	NXFS.writefile(blockconf, value:gsub("\r\n", "\n"))
+	nixio.fs.writefile(blockconf, value:gsub("\r\n", "\n"))
 end
 o.remove = function(self, section, value)
-	NXFS.writefile(blockconf, "")
+	nixio.fs.writefile(blockconf, "")
 end
 
-s:tab("netflix",  translate("Netflix Domain List"))
+s:tab("denydomain", translate("Deny Domain List"))
+local denydomainconf = "/etc/ssrplus/deny.list"
+o = s:taboption("denydomain", TextValue, "denydomainconf")
+o.rows = 13
+o.wrap = "off"
+o.rmempty = true
+o.cfgvalue = function(self, section)
+	return nixio.fs.readfile(denydomainconf) or " "
+end
+o.write = function(self, section, value)
+	nixio.fs.writefile(denydomainconf, value:gsub("\r\n", "\n"))
+end
+o.remove = function(self, section, value)
+	nixio.fs.writefile(denydomainconf, "")
+end
 
-local netflixconf = "/etc/config/netflix.list"
+s:tab("netflix", translate("Netflix Domain List"))
+local netflixconf = "/etc/ssrplus/netflix.list"
 o = s:taboption("netflix", TextValue, "netflixconf")
 o.rows = 13
 o.wrap = "off"
 o.rmempty = true
 o.cfgvalue = function(self, section)
-	return NXFS.readfile(netflixconf) or " "
+	return nixio.fs.readfile(netflixconf) or " "
 end
 o.write = function(self, section, value)
-	NXFS.writefile(netflixconf, value:gsub("\r\n", "\n"))
+	nixio.fs.writefile(netflixconf, value:gsub("\r\n", "\n"))
 end
 o.remove = function(self, section, value)
-	NXFS.writefile(netflixconf, "")
+	nixio.fs.writefile(netflixconf, "")
 end
 
-s:tab("netflixip",  translate("Netflix IP List"))
+if is_finded("dnsproxy") then
+	s:tab("dnsproxy", translate("Dnsproxy Parse List"))
+	local dnsproxyconf = "/etc/ssrplus/dnsproxy_dns.list"
+	o = s:taboption("dnsproxy", TextValue, "dnsproxyconf", "", "<font style=color:red>" .. translate("Specifically for edit dnsproxy DNS parse files.") .. "</font>")
+	o.rows = 13
+	o.wrap = "off"
+	o.rmempty = true
+	o.cfgvalue = function(self, section)
+		return nixio.fs.readfile(dnsproxyconf) or " "
+	end
+	o.write = function(self, section, value)
+		nixio.fs.writefile(dnsproxyconf, value:gsub("\r\n", "\n"))
+	end
+	o.remove = function(self, section, value)
+		nixio.fs.writefile(dnsproxyconf, "")
+	end
+end
 
-local netflixipconf = "/etc/config/netflixip.list"
-o = s:taboption("netflixip", TextValue, "netflixipconf")
-o.rows = 13
-o.wrap = "off"
-o.rmempty = true
-o.cfgvalue = function(self, section)
-	return NXFS.readfile(netflixipconf) or " "
-end
-o.write = function(self, section, value)
-	NXFS.writefile(netflixipconf, value:gsub("\r\n", "\n"))
-end
-o.remove = function(self, section, value)
-	NXFS.writefile(netflixipconf, "")
+if luci.sys.call('[ -f "/www/luci-static/resources/uci.js" ]') == 0 then
+	m.apply_on_parse = true
+	function m.on_apply(self)
+		luci.sys.call("/etc/init.d/shadowsocksr reload > /dev/null 2>&1 &")
+	end
 end
 
 return m
